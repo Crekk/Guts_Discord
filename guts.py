@@ -84,8 +84,8 @@ async def on_message(message):
         bot.message_history.append(f"{message.author}: {message.content}")
         print(f"Received message from {message.author}: {message.content}")
 
-    
     # embeds
+    embed_texts = []
     if message.embeds:
         # If the message contains embeds, extract the title and description
         for embed in message.embeds:
@@ -95,13 +95,16 @@ async def on_message(message):
             # Only append to history if embed has content
             if embed_text.strip():  # Ensure there is actual text to process
                 bot.message_history.append(f"{message.author}: {embed_text}")
+                embed_texts.append(embed_text)
 
     # keep only the last "max_history" messages
     if len(bot.message_history) > max_history * 2:
         bot.message_history.pop(0)  # remove the oldest message
 
     # guts triggers
-    if any(word in message.content.lower() for word in trigger_words) or random.randint(1, odds) == 1:
+    message_content = message.content.lower()
+    embed_content = ' '.join(embed_texts).lower()
+    if any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words) or random.randint(1, odds) == 1:
         # send the messages to the bot
         context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
         print(f"Sending to CharacterAI with context:\n{context}")
