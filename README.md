@@ -1,5 +1,5 @@
 # guts_discord
-Simple self-hosted Discord bot, that allows chatting with a character.ai bot, uses the **[CharacterAI API](https://github.com/kramcat/CharacterAI)** to power the chatbot. The API is an unofficial wrapper for interacting with CharacterAI's platform.
+Simple self-hosted Discord bot, allows chatting with a character.ai bot, uses the **[CharacterAI API](https://github.com/kramcat/CharacterAI)** to power the chatbot. The API is an unofficial wrapper for interacting with CharacterAI's platform.
 
 Requires token.json file with the following information:
 ```json
