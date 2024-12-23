@@ -81,8 +81,19 @@ async def on_message(message):
 
     # regular text messages
     if message.content:
-        bot.message_history.append(f"{message.author}: {message.content}")
-        print(f"Received message from {message.author}: {message.content}")
+        if message.author.name == 'crekkers':
+            bot.message_history.append(f"Crek: {message.content}")
+            print(f"Received message from Crek: {message.content}")
+        elif message.author.name == 'pochitaman':
+            bot.message_history.append(f"Pochita Man: {message.content}")
+            print(f"Received message from Pochita Man: {message.content}")
+        elif message.author.name == 'wiwern':
+            bot.message_history.append(f"Crustle: {message.content}")
+            print(f"Received message from Crustle: {message.content}")
+        else:
+            bot.message_history.append(f"{message.author}: {message.content}")
+            print(f"Received message from {message.author}: {message.content}")
+
 
     # embeds
     embed_texts = []
