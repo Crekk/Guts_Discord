@@ -116,14 +116,25 @@ async def on_message(message):
     message_content = message.content.lower()
     embed_content = ' '.join(embed_texts).lower()
     if any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words) or random.randint(1, odds) == 1:
-        # send the messages to the bot
+        
+        # set the context as last couple messages
         context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
         print(f"Sending to CharacterAI with context:\n{context}")
         
-        # send message to c.ai with context, get response
-        ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
-        print(f"Received response: {ai_message.text}")
-        
+        # Send message to c.ai, get response
+        try:
+            ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
+            print(f"Received response: {ai_message.text}")
+        except Exception as e:
+            print(f"Error encountered: {e}. Restarting session...")
+            bot.ai_chat, bot.chat_id = await start_ai_chat() # start new session       
+            ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context) # send message again
+            print(f"Received response after retry: {ai_message.text}")
+
+        # process the message to not include 'guts:'
+        if ai_message.text.startswith('Guts:'):
+            ai_message.text = ai_message.text[6:].strip()
+
         # send response to discord
         await message.channel.send(ai_message.text)
         bot.message_history = []  # clear message history
