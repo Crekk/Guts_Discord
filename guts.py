@@ -131,13 +131,16 @@ async def on_message(message):
             ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context) # send message again
             print(f"Received response after retry: {ai_message.text}")
 
-        # process the message to not include 'guts:'
+        # remove "Guts:" prefix if it exists
         if ai_message.text.startswith('Guts:'):
-            ai_message.text = ai_message.text[6:].strip()
+            processed_text = ai_message.text[6:].strip()
+        else:
+            processed_text = ai_message.text
 
         # send response to discord
-        await message.channel.send(ai_message.text)
+        await message.channel.send(processed_text)
         bot.message_history = []  # clear message history
+
 
 
     # ensure the bot processes other commands
