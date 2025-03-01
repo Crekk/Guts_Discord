@@ -13,7 +13,7 @@ trigger_words = [
     'pinsir', 'focus sash', 'burning village', 'impostor', 'society',
     'fire capitol', 'police brutality', 'burned village', 'chungus', 'colossal titans', 'berserk'
 ]
-odds = 50  # 1 in odds chance of responding to a message
+odds = 100  # 1 in odds chance of responding to a message
 max_history = 2  # number of previous messages to include
 
 # load tokens from json
