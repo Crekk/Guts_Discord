@@ -1,9 +1,10 @@
-import discord
-from discord.ext import commands
-from characterai import aiocai
+import discord # type: ignore
+from discord.ext import commands # type: ignore
+from characterai import aiocai # type: ignore
 import asyncio
 import random
 import json
+import time
 
 # CUSTOMIZABLE VARIABLES
 trigger_words = [
@@ -14,7 +15,8 @@ trigger_words = [
     'fire capitol', 'police brutality', 'burned village', 'chungus', 'colossal titans', 'berserk'
 ]
 odds = 100  # 1 in odds chance of responding to a message
-max_history = 2  # number of previous messages to include
+max_history = 3  # number of previous messages to include
+inactivity_timer = 15 * 60 # resets message history after this many minutes of inactivity
 
 # load tokens from json
 with open('token.json') as f:
@@ -45,6 +47,19 @@ async def on_ready():
     print(f'Logged in as {bot.user}')
     bot.ai_chat, bot.chat_id = await start_ai_chat()
     bot.message_history = []  # start message history
+    bot.last_activity = time.time() # start last message activity
+    bot.loop.create_task(inactivity_reset())  # Start the inactivity timer task
+
+
+# Inactivity timer
+async def inactivity_reset():
+    while True:
+        await asyncio.sleep(60)  # check every minute
+        elapsed = time.time() - bot.last_activity
+        if elapsed >= inactivity_timer and bot.message_history:
+            bot.message_history.clear()
+            print("Message history cleared due to inactivity.")
+
 
 # command to restart chat 
 @bot.command()
@@ -66,10 +81,45 @@ async def triggers(ctx):
     trigger_list = ', '.join(trigger_words)
     await ctx.send(f"Current trigger words: {trigger_list}")
 
+# command to change odds
+@bot.command()
+async def changeodds(ctx, new_odds: int = None):
+    """Change the odds of responding to a message"""
+    global odds  # Referencing the global odds variable
+    if new_odds is None:
+        await ctx.send(f"The current odds are 1 in {odds}")
+    else:
+        odds = new_odds
+        await ctx.send(f"Changed odds to 1 in {odds}")
+
+# command to change odds
+@bot.command()
+async def changehistory(ctx, new_max_history: int = None):
+    """Change the number of messages to include in context"""
+    global max_history  # Referencing the global odds variable
+    if new_max_history is None:
+        await ctx.send(f"The current messages included are {max_history+1}")
+    else:
+        max_history = new_max_history
+        await ctx.send(f"Changed the number of messages to include to {max_history+1}")
+
+# wall command
+@bot.command()
+async def wall(ctx):
+    """Create a wall"""
+    rand_wallcount = random.randint(4, 9)
+    for i in range(rand_wallcount):
+        rand_walldelay = random.randint(1,500)/1000
+        await ctx.send("https://i.imgur.com/rY19O49.png")
+        await asyncio.sleep(rand_walldelay)
 
 # read messages
 @bot.event
 async def on_message(message):
+    
+    # set last activity
+    bot.last_activity = time.time()
+
     # if bot is the author, ignore
     if message.author == bot.user:
         return
@@ -78,7 +128,7 @@ async def on_message(message):
     if not message.content and not message.embeds:
         print(f"Received empty message from {message.author}")
         return
-
+    
     # regular text messages
     if message.content:
         if message.author.name == 'crekkers':
@@ -115,7 +165,29 @@ async def on_message(message):
     # guts triggers
     message_content = message.content.lower()
     embed_content = ' '.join(embed_texts).lower()
-    if any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
+    
+    # Check if the message is a reply to a previous message
+    if message.reference:
+        original_message = await message.channel.fetch_message(message.reference.message_id)
+        
+        # Trigger the response if the original message was from the bot (e.g., "Guts" message)
+        if original_message.author == bot.user:
+            # Use the same context and logic for responding to CharacterAI
+            context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent messages
+            print(f"Triggered by reply: {message.content}")
+            try:
+                ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
+                print(f"Received response: {ai_message.text}")
+            except Exception as e:
+                print(f"Error encountered: {e}. Restarting session...")
+                bot.ai_chat, bot.chat_id = await start_ai_chat()  # restart session
+                ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)  # send again
+                print(f"Received response after retry: {ai_message.text}")
+
+            # Send the processed response to the channel
+            await message.channel.send(ai_message.text)
+    
+    elif any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
         
         # set the context as last couple messages
         context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
@@ -168,7 +240,7 @@ async def on_message(message):
             bot.message_history = []  # clear message history
 
 
-    # ensure the bot processes other commands
+    # Ensure the bot processes commands after custom message logic
     await bot.process_commands(message)
 
 # run the bot
