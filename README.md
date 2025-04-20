@@ -1,6 +1,8 @@
 # guts_discord
 Simple self-hosted Discord bot, allows chatting with a character.ai bot, or local LLM character via **[KoboldCCP](https://github.com/LostRuins/koboldcpp)**
+
 Uses the **[CharacterAI API](https://github.com/kramcat/CharacterAI)** to power the chatbot
+
 Launch through launcher.bat and select version, if running the KoboldCCP version, need that running beforehand
 
 
