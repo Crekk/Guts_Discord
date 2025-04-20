@@ -1,12 +1,10 @@
 import discord # type: ignore
 from discord.ext import commands # type: ignore
+from characterai import aiocai # type: ignore
 import asyncio
 import random
 import json
 import time
-import requests
-
-url = "http://127.0.0.1:8080/send_message"
 
 # CUSTOMIZABLE VARIABLES
 trigger_words = [
@@ -25,22 +23,23 @@ with open('token.json') as f:
     config = json.load(f)
 
 DISCORD_TOKEN = config['DISCORD_TOKEN']
+CHARACTER_AI_TOKEN = config['CHARACTER_AI_TOKEN']
+CHAR_ID = config['CHAR_ID']
 
 # initialize the bot
 intents = discord.Intents.default()
 intents.message_content = True  # enable reading messages
 bot = commands.Bot(command_prefix=",", intents=intents)
 
+# initialize cai client
+client = aiocai.Client(CHARACTER_AI_TOKEN)
 
 # start new session, ai side
 async def start_ai_chat():
-    # Make an initial request to your 'guts_llm.py' server to start the conversation
-    response = requests.post('http://127.0.0.1:8080/send_message', json={'user_input': "start conversation"})
-    
-    if response.status_code == 200:
-        return response.json().get('response', ''), None
-    else:
-        return "Error: Could not start conversation.", None
+    me = await client.get_me()
+    chat = await client.connect()
+    new, answer = await chat.new_chat(CHAR_ID, me.id)
+    return chat, new.chat_id
 
 # start new session, discord side
 @bot.event
@@ -51,46 +50,29 @@ async def on_ready():
     bot.last_activity = time.time() # start last message activity
     bot.loop.create_task(inactivity_reset())  # Start the inactivity timer task
 
-async def send_to_guts(message, bot, max_history, url):
-    # Get the last max_history messages from message history
-    context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
-    print(f"Sending to Guts with context:\n{context}")
+#send messages to guts
+async def send_to_guts(bot, message, context):
+    print(f"Sending to CharacterAI with context:\n{context}")
     print(f"Triggered by message: {message.content.lower()}")
     
     try:
-        # Prepare the data to send
-        data = {'user_input': context}  # Use a structured payload like in chat_with_guts
-        
-        print(f"Sending data to Guts: {data}")
-
-        # Send the request to guts
-        response = requests.post(url, json=data)
-        
-        # Debugging: Check response status and content
-        print(f"API Response Status: {response.status_code}")
-        print(f"API Response Text: {response.text}")
-
-        if response.status_code == 200:
-            ai_message = response.json().get('response', '')
-            print(f"Received response from Guts: {ai_message}")
-        else:
-            raise Exception(f"Failed to get a valid response from server, status code: {response.status_code}")
-
-        # Remove "Guts:" prefix if it exists
-        if ai_message.text.startswith('Guts:'):
-            processed_text = ai_message.text[6:].strip()
-        else:
-            processed_text = ai_message.text
-
-        # Clear the history after sending the response
-        bot.message_history = []  # Clear history after processing the message
-
-        # Send the response to Discord
-        await message.channel.send(ai_message)
-
+        ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
+        print(f"Received response: {ai_message.text}")
     except Exception as e:
-        print(f"Error during sending/receiving message: {e}")
-        await message.channel.send("An error occurred while processing your message.")
+        print(f"Error encountered: {e}. Restarting session...")
+        bot.ai_chat, bot.chat_id = await start_ai_chat()  # Start a new session
+        ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)  # Send the message again
+        print(f"Received response after retry: {ai_message.text}")
+
+    # Remove "Guts:" prefix if it exists
+    if ai_message.text.startswith('Guts:'):
+        processed_text = ai_message.text[6:].strip()
+    else:
+        processed_text = ai_message.text
+
+    # Send the response to Discord
+    await message.channel.send(processed_text)
+    bot.message_history = []  # Clear message history
 
 
 # Inactivity timer
@@ -103,19 +85,18 @@ async def inactivity_reset():
             print("Message history cleared due to inactivity.")
 
 
+# command to restart chat 
 @bot.command()
 async def restart(ctx):
-    """start a new chat on the server"""
-    print("Restarting chat session with Guts...")
+    """start a new chat on c.ai"""
+    print("Restarting CharacterAI chat session...")
     
-    # Send a reset command to the server or just restart by sending "start conversation" again
-    response = requests.post('http://127.0.0.1:8080/send_message', json={'user_input': "NEW_CHAT_123456789"})
+    # create a new chat session
+    bot.ai_chat, bot.chat_id = await start_ai_chat()
+    bot.message_history = []  # clear message history
     
-    if response.status_code == 200:
-        await ctx.send("I'm feeling like a brand new person... Something within me feels fresh...")
-    else:
-        await ctx.send("Sorry, I couldn't restart the chat session.")
-
+    # character line about restarting chat
+    await ctx.send("Oh, huh, I'm feeling like a brand new person... Something within me feels fresh...")
 
 # command to display all trigger words 
 @bot.command()
@@ -212,16 +193,18 @@ async def on_message(message):
     # Check if the message is a reply to a previous message
     if message.reference:
         original_message = await message.channel.fetch_message(message.reference.message_id)
-        
         # Trigger the response if the original message was from the bot (e.g., "Guts" message)
         if original_message.author == bot.user:
-            await send_to_guts(message, bot, max_history, url)
-    
+            context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
+            await send_to_guts(bot, message, context)
+
     elif any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
-        await send_to_guts(message, bot, max_history, url)
+        context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
+        await send_to_guts(bot, message, context)
 
     elif random.randint(1, odds) == 1:
-        await send_to_guts(message, bot, max_history, url)
+        context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
+        await send_to_guts(bot, message, context)
 
     # Ensure the bot processes commands after custom message logic
     await bot.process_commands(message)
