@@ -50,6 +50,30 @@ async def on_ready():
     bot.last_activity = time.time() # start last message activity
     bot.loop.create_task(inactivity_reset())  # Start the inactivity timer task
 
+#send messages to guts
+async def send_to_guts(bot, message, context):
+    print(f"Sending to CharacterAI with context:\n{context}")
+    print(f"Triggered by message: {message.content.lower()}")
+    
+    try:
+        ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
+        print(f"Received response: {ai_message.text}")
+    except Exception as e:
+        print(f"Error encountered: {e}. Restarting session...")
+        bot.ai_chat, bot.chat_id = await start_ai_chat()  # Start a new session
+        ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)  # Send the message again
+        print(f"Received response after retry: {ai_message.text}")
+
+    # Remove "Guts:" prefix if it exists
+    if ai_message.text.startswith('Guts:'):
+        processed_text = ai_message.text[6:].strip()
+    else:
+        processed_text = ai_message.text
+
+    # Send the response to Discord
+    await message.channel.send(processed_text)
+    bot.message_history = []  # Clear message history
+
 
 # Inactivity timer
 async def inactivity_reset():
@@ -169,76 +193,18 @@ async def on_message(message):
     # Check if the message is a reply to a previous message
     if message.reference:
         original_message = await message.channel.fetch_message(message.reference.message_id)
-        
         # Trigger the response if the original message was from the bot (e.g., "Guts" message)
         if original_message.author == bot.user:
-            # Use the same context and logic for responding to CharacterAI
-            context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent messages
-            print(f"Triggered by reply: {message.content}")
-            try:
-                ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
-                print(f"Received response: {ai_message.text}")
-            except Exception as e:
-                print(f"Error encountered: {e}. Restarting session...")
-                bot.ai_chat, bot.chat_id = await start_ai_chat()  # restart session
-                ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)  # send again
-                print(f"Received response after retry: {ai_message.text}")
+            context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
+            await send_to_guts(bot, message, context)
 
-            # Send the processed response to the channel
-            await message.channel.send(ai_message.text)
-    
     elif any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
-        
-        # set the context as last couple messages
         context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
-        print(f"Sending to CharacterAI with context:\n{context}")
-        print(f"Triggered by message: {message_content}")
-        # Send message to c.ai, get response
-        try:
-            ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
-            print(f"Received response: {ai_message.text}")
-        except Exception as e:
-            print(f"Error encountered: {e}. Restarting session...")
-            bot.ai_chat, bot.chat_id = await start_ai_chat() # start new session       
-            ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context) # send message again
-            print(f"Received response after retry: {ai_message.text}")
-
-        # remove "Guts:" prefix if it exists
-        if ai_message.text.startswith('Guts:'):
-            processed_text = ai_message.text[6:].strip()
-        else:
-            processed_text = ai_message.text
-
-        # send response to discord
-        await message.channel.send(processed_text)
-        bot.message_history = []  # clear message history
+        await send_to_guts(bot, message, context)
 
     elif random.randint(1, odds) == 1:
-            
-            # set the context as last couple messages
-            context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
-            print(f"Sending to CharacterAI with context:\n{context}")
-            print(f"Triggered by random chance")
-            # Send message to c.ai, get response
-            try:
-                ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context)
-                print(f"Received response: {ai_message.text}")
-            except Exception as e:
-                print(f"Error encountered: {e}. Restarting session...")
-                bot.ai_chat, bot.chat_id = await start_ai_chat() # start new session       
-                ai_message = await bot.ai_chat.send_message(CHAR_ID, bot.chat_id, context) # send message again
-                print(f"Received response after retry: {ai_message.text}")
-
-            # remove "Guts:" prefix if it exists
-            if ai_message.text.startswith('Guts:'):
-                processed_text = ai_message.text[6:].strip()
-            else:
-                processed_text = ai_message.text
-
-            # send response to discord
-            await message.channel.send(processed_text)
-            bot.message_history = []  # clear message history
-
+        context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
+        await send_to_guts(bot, message, context)
 
     # Ensure the bot processes commands after custom message logic
     await bot.process_commands(message)
