@@ -26,4 +26,6 @@ CHAR_ID = ID of the character.ai bot, found in the chat link: https://character.
 
 OPENAI_TOKEN = your OpenAI key
 
+also, you can change the model the bot uses in guts_openai.py, by default it's set to gpt-4.1-mini
+
 If running multiple bots on the same network, you have to change the all instances of the port that guts.py uses to something else for the other bot, simply replace 8080 in all scripts with a different port, for example 8090
