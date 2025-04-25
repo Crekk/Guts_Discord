@@ -11,7 +11,7 @@ Configure token.json file with the following information:
 {
     "DISCORD_TOKEN": "", 
     "CHARACTER_AI_TOKEN": "", 
-    "CHAR_ID": "" 
+    "CHAR_ID": "", 
     "OPENAI_TOKEN": ""
 }
 ```
