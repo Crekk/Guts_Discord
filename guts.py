@@ -26,7 +26,6 @@ with open('token.json') as f:
     config = json.load(f)
 
 DISCORD_TOKEN = config['DISCORD_TOKEN']
-AZURE_TOKEN = config['AZURE_TOKEN']
 
 # initialize the bot
 intents = discord.Intents.default()
