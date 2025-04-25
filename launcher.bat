@@ -8,8 +8,9 @@ echo        Guts Berserk 2 Discord Launcher
 echo ==============================================
 echo.
 echo Please select which version to launch:
-echo 1. CharacterAI Version (c.ai)
-echo 2. LLM Version
+echo 1. CharacterAI
+echo 2. OpenAI API
+echo 3. KoboldCCP
 echo Q. Quit
 echo ===================================
 
@@ -22,7 +23,10 @@ if /i "%choice%"=="1" (
     echo Launching CharacterAI Version...
     start powershell -NoExit -Command "cd '%~dp0' ; python '%~dp0guts_cai.py'"
 ) else if /i "%choice%"=="2" (
-    echo Launching LLM Version...
+    echo Launching OpenAI Version...
+    start powershell -NoExit -Command "cd '%~dp0' ; python '%~dp0guts_openai.py'"
+) else if /i "%choice%"=="3" (
+    echo Launching KoboldCCP Version...
     start powershell -NoExit -Command "cd '%~dp0' ; python '%~dp0guts_llm.py'"
 ) else if /i "%choice%"=="Q" (
     echo Quitting...

@@ -6,6 +6,7 @@ import json
 import time
 import requests
 
+# url of the local message server
 url = "http://127.0.0.1:8080/send_message"
 
 # CUSTOMIZABLE VARIABLES
@@ -16,7 +17,7 @@ trigger_words = [
     'pinsir', 'focus sash', 'burning village', 'impostor', 'society',
     'fire capitol', 'police brutality', 'burned village', 'chungus', 'colossal titans', 'berserk'
 ]
-odds = 100  # 1 in odds chance of responding to a message
+odds = 250  # 1 in odds chance of responding to a message
 max_history = 3  # number of previous messages to include
 inactivity_timer = 15 * 60 # resets message history after this many minutes of inactivity
 
@@ -25,6 +26,7 @@ with open('token.json') as f:
     config = json.load(f)
 
 DISCORD_TOKEN = config['DISCORD_TOKEN']
+AZURE_TOKEN = config['AZURE_TOKEN']
 
 # initialize the bot
 intents = discord.Intents.default()
@@ -77,10 +79,11 @@ async def send_to_guts(message, bot, max_history, url):
             raise Exception(f"Failed to get a valid response from server, status code: {response.status_code}")
 
         # Remove "Guts:" prefix if it exists
-        if ai_message.text.startswith('Guts:'):
-            processed_text = ai_message.text[6:].strip()
+        if ai_message.startswith('Guts:'):
+            processed_text = ai_message[6:].strip()
         else:
-            processed_text = ai_message.text
+            processed_text = ai_message.strip() 
+
 
         # Clear the history after sending the response
         bot.message_history = []  # Clear history after processing the message
