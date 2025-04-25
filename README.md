@@ -17,11 +17,13 @@ Configure token.json file with the following information:
 ```
 DISCORD_TOKEN = Discord bot token
 
-if using character.ai
+-if using character.ai:
+
 CHARACTER_AI_TOKEN = Character AI token, see **[kramcat/CharacterAI](https://github.com/kramcat/CharacterAI)** on how to obtain
 CHAR_ID = ID of the character.ai bot, found in the chat link: https://character.ai/chat/CHAR_ID
 
-if using openai
+-if using openai:
+
 OPENAI_TOKEN = your OpenAI key
 
 If running multiple bots on the same network, you have to change the all instances of the port that guts.py uses to something else for the other bot, simply replace 8080 in all scripts with a different port, for example 8090
