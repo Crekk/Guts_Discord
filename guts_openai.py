@@ -48,13 +48,7 @@ async def handle_send_message(request):
 
         print(f"AI Response: {ai_response}")
 
-        # Strip "Guts:" if it exists
-        if ai_response.startswith('Guts:'):
-            processed_text = ai_response[5:].strip()
-        else:
-            processed_text = ai_response
-
-        return web.json_response({'response': processed_text})
+        return web.json_response({'response': ai_response})
 
     except Exception as e:
         print(f"Error: {e}")

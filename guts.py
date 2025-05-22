@@ -10,6 +10,7 @@ import requests
 url = "http://127.0.0.1:8080/send_message"
 
 # CUSTOMIZABLE VARIABLES
+BOT_NAME = "Guts" # used for stripping "Guts: " prefix
 trigger_words = [
     'guts', 'hornet', 'heracross', 'captain hot', 'evil morty', 'question of the day', 
     'qotd', 'society livers', 'tower of rebirth', 'jailer', 'peakland', 'rhinor', 
@@ -17,6 +18,11 @@ trigger_words = [
     'pinsir', 'focus sash', 'burning village', 'impostor', 'society',
     'fire capitol', 'police brutality', 'burned village', 'chungus', 'colossal titans', 'berserk'
 ]
+USERNAME_MAP = {
+    'crekkers': 'Crek',
+    'pochitaman': 'Pochita Man',
+    'wiwern': 'Crustle',
+}
 odds = 250  # 1 in odds chance of responding to a message
 max_history = 3  # number of previous messages to include
 inactivity_timer = 15 * 60 # resets message history after this many minutes of inactivity
@@ -35,13 +41,25 @@ bot = commands.Bot(command_prefix=",", intents=intents)
 
 # start new session, ai side
 async def start_ai_chat():
-    # Make an initial request to your 'guts_llm.py' server to start the conversation
-    response = requests.post('http://127.0.0.1:8080/send_message', json={'user_input': "start conversation"})
-    
-    if response.status_code == 200:
-        return response.json().get('response', ''), None
-    else:
-        return "Error: Could not start conversation.", None
+    retry_count = 0
+    while True:
+        try:
+            response = requests.post('http://127.0.0.1:8080/send_message', json={'user_input': "start conversation"})
+            if response.status_code == 200:
+                return response.json().get('response', ''), None
+            else:
+                print(f"Error: Received status code {response.status_code}")
+        except Exception as e:
+            print(f"Exception occurred: {e}")
+
+        retry_count += 1
+        if retry_count <= 12:
+            wait_time = 10  # retry every 10 seconds for first 12 tries
+        else:
+            wait_time = 3600  # retry every hour after that
+
+        print(f"Retrying in {wait_time} seconds... (Attempt #{retry_count})")
+        await asyncio.sleep(wait_time)
 
 # start new session, discord side
 @bot.event
@@ -77,18 +95,18 @@ async def send_to_guts(message, bot, max_history, url):
         else:
             raise Exception(f"Failed to get a valid response from server, status code: {response.status_code}")
 
-        # Remove "Guts:" prefix if it exists
-        if ai_message.startswith('Guts:'):
-            processed_text = ai_message[6:].strip()
+        # Remove prefix if it exists
+        prefix = f"{BOT_NAME}:"
+        if ai_message.lower().startswith(prefix.lower()):
+            processed_text = ai_message[len(prefix):].lstrip()
         else:
-            processed_text = ai_message.strip() 
-
+            processed_text = ai_message.strip()
 
         # Clear the history after sending the response
         bot.message_history = []  # Clear history after processing the message
 
         # Send the response to Discord
-        await message.channel.send(ai_message)
+        await message.channel.send(processed_text)
 
     except Exception as e:
         print(f"Error during sending/receiving message: {e}")
@@ -137,7 +155,7 @@ async def changeodds(ctx, new_odds: int = None):
         odds = new_odds
         await ctx.send(f"Changed odds to 1 in {odds}")
 
-# command to change odds
+# command to change history
 @bot.command()
 async def changehistory(ctx, new_max_history: int = None):
     """Change the number of messages to include in context"""
@@ -176,19 +194,8 @@ async def on_message(message):
     
     # regular text messages
     if message.content:
-        if message.author.name == 'crekkers':
-            bot.message_history.append(f"Crek: {message.content}")
-            print(f"Received message from Crek: {message.content}")
-        elif message.author.name == 'pochitaman':
-            bot.message_history.append(f"Pochita Man: {message.content}")
-            print(f"Received message from Pochita Man: {message.content}")
-        elif message.author.name == 'wiwern':
-            bot.message_history.append(f"Crustle: {message.content}")
-            print(f"Received message from Crustle: {message.content}")
-        else:
-            bot.message_history.append(f"{message.author}: {message.content}")
-            print(f"Received message from {message.author}: {message.content}")
-
+        name = USERNAME_MAP.get(message.author.name, str(message.author))
+        bot.message_history.append(f"{name}: {message.content}")
 
     # embeds
     embed_texts = []
@@ -211,19 +218,25 @@ async def on_message(message):
     message_content = message.content.lower()
     embed_content = ' '.join(embed_texts).lower()
     
-    # Check if the message is a reply to a previous message
-    if message.reference:
+    # check if bot is mentioned in message
+    if bot.user in message.mentions:
+        await send_to_guts(message, bot, max_history, url)
+    
+    # check trigger words
+    elif any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
+        await send_to_guts(message, bot, max_history, url)
+
+    # try random odds
+    elif random.randint(1, odds) == 1:
+        await send_to_guts(message, bot, max_history, url)
+
+    # check if the message is a reply to a previous message
+    elif message.reference:
         original_message = await message.channel.fetch_message(message.reference.message_id)
         
         # Trigger the response if the original message was from the bot (e.g., "Guts" message)
         if original_message.author == bot.user:
             await send_to_guts(message, bot, max_history, url)
-    
-    elif any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
-        await send_to_guts(message, bot, max_history, url)
-
-    elif random.randint(1, odds) == 1:
-        await send_to_guts(message, bot, max_history, url)
 
     # Ensure the bot processes commands after custom message logic
     await bot.process_commands(message)
