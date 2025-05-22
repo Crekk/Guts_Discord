@@ -20,6 +20,7 @@ DISCORD_TOKEN = Discord bot token
 -if using character.ai:
 
 CHARACTER_AI_TOKEN = Character AI token, see **[kramcat/CharacterAI](https://github.com/kramcat/CharacterAI)** on how to obtain
+
 CHAR_ID = ID of the character.ai bot, found in the chat link: https://character.ai/chat/CHAR_ID
 
 -if using openai:
