@@ -26,10 +26,16 @@ USERNAME_MAP = {
 odds = 250  # 1 in odds chance of responding to a message
 max_history = 3  # number of previous messages to include
 inactivity_timer = 15 * 60 # resets message history after this many minutes of inactivity
+typing_max = 5.0 # 5s max
+typing_perchar = 0.04 # 0.03s per character
 
 # load tokens from json
-with open('token.json') as f:
-    config = json.load(f)
+try:
+    with open('token.json') as f:
+        config = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"Failed to load token file: {e}")
+    exit(1)
 
 DISCORD_TOKEN = config['DISCORD_TOKEN']
 
@@ -44,7 +50,7 @@ async def start_ai_chat():
     retry_count = 0
     while True:
         try:
-            response = requests.post('http://127.0.0.1:8080/send_message', json={'user_input': "start conversation"})
+            response = requests.post(url, json={'user_input': "start conversation"})
             if response.status_code == 200:
                 return response.json().get('response', ''), None
             else:
@@ -105,8 +111,13 @@ async def send_to_guts(message, bot, max_history, url):
         # Clear the history after sending the response
         bot.message_history = []  # Clear history after processing the message
 
-        # Send the response to Discord
-        await message.channel.send(processed_text)
+        # Calculate delay based on message length (e.g. 0.05s per character, max 5 seconds)
+        typing_delay = min(len(processed_text) * typing_perchar, typing_max)
+
+        # Show the typing indicator
+        async with message.channel.typing():
+            await asyncio.sleep(typing_delay)  # Simulate the bot "typing"
+            await message.channel.send(processed_text)
 
     except Exception as e:
         print(f"Error during sending/receiving message: {e}")
@@ -129,7 +140,7 @@ async def restart(ctx):
     print("Restarting chat session with Guts...")
     
     # Send a reset command to the server or just restart by sending "start conversation" again
-    response = requests.post('http://127.0.0.1:8080/send_message', json={'user_input': "NEW_CHAT_123456789"})
+    response = requests.post(url, json={'user_input': "NEW_CHAT_123456789"})
     
     if response.status_code == 200:
         await ctx.send("I'm feeling like a brand new person... Something within me feels fresh...")
