@@ -5,12 +5,15 @@ import random
 import json
 import time
 import requests
+import re
+
+# ------------------ CUSTOMIZABLE BOT SETTINGS ------------------
 
 # url of the local message server
 url = "http://127.0.0.1:8080/send_message"
 
-# CUSTOMIZABLE VARIABLES
 BOT_NAME = "Guts" # used for stripping "Guts: " prefix
+
 trigger_words = [
     'guts', 'hornet', 'heracross', 'captain hot', 'evil morty', 'question of the day', 
     'qotd', 'society livers', 'tower of rebirth', 'jailer', 'peakland', 'rhinor', 
@@ -23,11 +26,23 @@ USERNAME_MAP = {
     'pochitaman': 'Pochita Man',
     'wiwern': 'Crustle',
 }
+CMD_PREFIX = ','  # command prefix for the bot
+RESTART_MSG = "I'm feeling like a brand new person... Something within me feels fresh..." #,restart command message
+
 odds = 250  # 1 in odds chance of responding to a message
+react_odds = 1000 # 1 in react_odds chance of reacting to a message
 max_history = 3  # number of previous messages to include
 inactivity_timer = 15 * 60 # resets message history after this many minutes of inactivity
+
 typing_max = 5.0 # 5s max
-typing_perchar = 0.04 # 0.03s per character
+typing_perchar = 0.03 # 0.03s per character
+
+wall_enabled = True  # enable wall command
+wall_url = "https://i.imgur.com/rY19O49.png" # URL for the wall image
+wall_count_min = 4  # minimum number of wall images to send
+wall_count_max = 9  # maximum number of wall images to send
+
+# ------------------ END CUSTOMIZABLE SETTINGS ------------------
 
 # load tokens from json
 try:
@@ -42,7 +57,7 @@ DISCORD_TOKEN = config['DISCORD_TOKEN']
 # initialize the bot
 intents = discord.Intents.default()
 intents.message_content = True  # enable reading messages
-bot = commands.Bot(command_prefix=",", intents=intents)
+bot = commands.Bot(command_prefix=CMD_PREFIX, intents=intents)
 
 
 # start new session, ai side
@@ -79,14 +94,14 @@ async def on_ready():
 async def send_to_guts(message, bot, max_history, url):
     # Get the last max_history messages from message history
     context = '\n'.join(bot.message_history[-max_history * 2:])  # include recent 2 * max_history messages
-    print(f"Sending to Guts with context:\n{context}")
+    print(f"Sending to {BOT_NAME} with context:\n{context}")
     print(f"Triggered by message: {message.content.lower()}")
     
     try:
         # Prepare the data to send
         data = {'user_input': context}  # Use a structured payload like in chat_with_guts
         
-        print(f"Sending data to Guts: {data}")
+        print(f"Sending data to {BOT_NAME}: {data}")
 
         # Send the request to guts
         response = requests.post(url, json=data)
@@ -97,7 +112,7 @@ async def send_to_guts(message, bot, max_history, url):
 
         if response.status_code == 200:
             ai_message = response.json().get('response', '')
-            print(f"Received response from Guts: {ai_message}")
+            print(f"Received response from {BOT_NAME}: {ai_message}")
         else:
             raise Exception(f"Failed to get a valid response from server, status code: {response.status_code}")
 
@@ -115,9 +130,11 @@ async def send_to_guts(message, bot, max_history, url):
         typing_delay = min(len(processed_text) * typing_perchar, typing_max)
 
         # Show the typing indicator
-        async with message.channel.typing():
-            await asyncio.sleep(typing_delay)  # Simulate the bot "typing"
-            await message.channel.send(processed_text)
+        typing_task = bot.loop.create_task(message.channel.trigger_typing())
+        await asyncio.sleep(typing_delay)
+        if not typing_task.done():
+            typing_task.cancel()
+        await message.channel.send(processed_text)
 
     except Exception as e:
         print(f"Error during sending/receiving message: {e}")
@@ -137,13 +154,15 @@ async def inactivity_reset():
 @bot.command()
 async def restart(ctx):
     """start a new chat on the server"""
-    print("Restarting chat session with Guts...")
+    print(f"Restarting chat session with {BOT_NAME}...")
     
     # Send a reset command to the server or just restart by sending "start conversation" again
     response = requests.post(url, json={'user_input': "NEW_CHAT_123456789"})
     
     if response.status_code == 200:
-        await ctx.send("I'm feeling like a brand new person... Something within me feels fresh...")
+        async with ctx.channel.typing():
+            await asyncio.sleep(0.5)  # Simulate the bot "typing"
+            await ctx.send(RESTART_MSG)
     else:
         await ctx.send("Sorry, I couldn't restart the chat session.")
 
@@ -178,14 +197,19 @@ async def changehistory(ctx, new_max_history: int = None):
         await ctx.send(f"Changed the number of messages to include to {max_history+1}")
 
 # wall command
-@bot.command()
-async def wall(ctx):
-    """Create a wall"""
-    rand_wallcount = random.randint(4, 9)
-    for i in range(rand_wallcount):
-        rand_walldelay = random.randint(1,500)/1000
-        await ctx.send("https://i.imgur.com/rY19O49.png")
-        await asyncio.sleep(rand_walldelay)
+if wall_enabled:
+    print("Wall command is enabled")
+    @bot.command()
+    async def wall(ctx):
+        """Create a wall"""
+        rand_wallcount = random.randint(wall_count_min, wall_count_max)
+        for i in range(rand_wallcount):
+            rand_walldelay = random.randint(1,500)/1000
+            await ctx.send(wall_url)
+            await asyncio.sleep(rand_walldelay)
+else:
+    print("Wall command is disabled")
+
 
 # read messages
 @bot.event
@@ -234,7 +258,7 @@ async def on_message(message):
         await send_to_guts(message, bot, max_history, url)
     
     # check trigger words
-    elif any(word in message_content for word in trigger_words) or any(word in embed_content for word in trigger_words):
+    elif any(re.search(rf'\b{re.escape(word)}\b', message_content) for word in trigger_words) or any(re.search(rf'\b{re.escape(word)}\b', embed_content) for word in trigger_words):
         await send_to_guts(message, bot, max_history, url)
 
     # try random odds
