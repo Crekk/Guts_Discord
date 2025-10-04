@@ -3,13 +3,22 @@ import json
 from aiohttp import web
 from openai import AsyncOpenAI  # Use the async version!
 import os
+from urllib.parse import urlparse
 
 # Load OpenAI token
 with open('token.json') as f:
     config = json.load(f)
+# Load config file
+with open("config.json") as f:
+    settings = json.load(f)
 
 OPENAI_TOKEN = config['OPENAI_TOKEN']
 client = AsyncOpenAI(api_key=OPENAI_TOKEN)
+
+# Parse URL from config
+parsed_url = urlparse(settings.get("url", "http://127.0.0.1:8080/send_message"))
+host = parsed_url.hostname or "127.0.0.1"
+port = parsed_url.port or 8080
 
 # System prompt
 with open("system_prompt.txt", "r", encoding="utf-8") as f:
@@ -60,4 +69,4 @@ app.router.add_post('/send_message', handle_send_message)
 
 # Run server
 if __name__ == '__main__':
-    web.run_app(app, host='127.0.0.1', port=8080)
+    web.run_app(app, host=host, port=port)

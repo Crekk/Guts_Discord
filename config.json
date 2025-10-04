@@ -1,0 +1,30 @@
+{
+  "url": "http://127.0.0.1:8080/send_message", 
+  "bot_name": "Guts", 
+  "trigger_words": [
+    "guts", "hornet", "heracross", "captain hot", "evil morty", "question of the day",
+    "qotd", "society livers", "tower of rebirth", "jailer", "peakland", "rhinor",
+    "fire castle", "creeper", "gamers", "hot gun", "dranoel", "big gutsus", "chungling", 
+    "big chungus", "berserk 2", "impostor", "pinsir", "focus sash", "burning village",
+    "society", "fire capitol", "police brutality", "burned village", "chungus", 
+    "colossal titans", "berserk"
+  ],
+  "username_map": {
+    "crekkers": "Crek",
+    "pochitaman": "Pochita Man",
+    "wiwern": "Crustle"
+  },
+  "command_prefix": ",",
+  "restart_message": "I'm feeling like a brand new person... Something within me feels fresh...",
+  "odds": 250,
+  "react_odds": 1000,
+  "max_history": 3,
+  "inactivity_timer": 900,
+  "typing_max": 5.0,
+  "typing_perchar": 0.03,
+  "wall_enabled": true,
+  "wall_url": "https://i.imgur.com/rY19O49.png",
+  "wall_count_min": 4,
+  "wall_count_max": 9,
+  "kobold_api_url": "http://127.0.0.1:5001/api/v1/generate"
+}

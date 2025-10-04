@@ -7,42 +7,31 @@ import time
 import requests
 import re
 
-# ------------------ CUSTOMIZABLE BOT SETTINGS ------------------
+try:
+    with open('config.json') as f:
+        settings = json.load(f)
+        print("Config loaded from config.json.")
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"Failed to load config file: {e}")
+    exit(1)
 
-# url of the local message server
-url = "http://127.0.0.1:8080/send_message"
-
-BOT_NAME = "Guts" # used for stripping "Guts: " prefix
-
-trigger_words = [
-    'guts', 'hornet', 'heracross', 'captain hot', 'evil morty', 'question of the day', 
-    'qotd', 'society livers', 'tower of rebirth', 'jailer', 'peakland', 'rhinor', 
-    'fire castle', 'creeper', 'gamers', 'hot gun', 'dranoel', 'big gutsus', 'chungling', 'big chungus', 'berserk 2', 'impostor', 
-    'pinsir', 'focus sash', 'burning village', 'impostor', 'society',
-    'fire capitol', 'police brutality', 'burned village', 'chungus', 'colossal titans', 'berserk'
-]
-USERNAME_MAP = {
-    'crekkers': 'Crek',
-    'pochitaman': 'Pochita Man',
-    'wiwern': 'Crustle',
-}
-CMD_PREFIX = ','  # command prefix for the bot
-RESTART_MSG = "I'm feeling like a brand new person... Something within me feels fresh..." #,restart command message
-
-odds = 250  # 1 in odds chance of responding to a message
-react_odds = 1000 # 1 in react_odds chance of reacting to a message
-max_history = 3  # number of previous messages to include
-inactivity_timer = 15 * 60 # resets message history after this many minutes of inactivity
-
-typing_max = 5.0 # 5s max
-typing_perchar = 0.03 # 0.03s per character
-
-wall_enabled = True  # enable wall command
-wall_url = "https://i.imgur.com/rY19O49.png" # URL for the wall image
-wall_count_min = 4  # minimum number of wall images to send
-wall_count_max = 9  # maximum number of wall images to send
-
-# ------------------ END CUSTOMIZABLE SETTINGS ------------------
+# Assign settings to variables
+url = settings.get("url", "http://127.0.0.1:8080/send_message")
+BOT_NAME = settings.get("bot_name", "Guts")
+trigger_words = settings.get("trigger_words", [])
+USERNAME_MAP = settings.get("username_map", {})
+CMD_PREFIX = settings.get("command_prefix", ",")
+RESTART_MSG = settings.get("restart_message", "I'm feeling like a brand new person... Something within me feels fresh...")
+odds = settings.get("odds", 250)
+react_odds = settings.get("react_odds", 1000)
+max_history = settings.get("max_history", 3)
+inactivity_timer = settings.get("inactivity_timer", 15 * 60)
+typing_max = settings.get("typing_max", 5.0)
+typing_perchar = settings.get("typing_perchar", 0.03)
+wall_enabled = settings.get("wall_enabled", True)
+wall_url = settings.get("wall_url", "https://i.imgur.com/rY19O49.png")
+wall_count_min = settings.get("wall_count_min", 4)
+wall_count_max = settings.get("wall_count_max", 9)
 
 # load tokens from json
 try:
@@ -130,10 +119,8 @@ async def send_to_guts(message, bot, max_history, url):
         typing_delay = min(len(processed_text) * typing_perchar, typing_max)
 
         # Show the typing indicator
-        typing_task = bot.loop.create_task(message.channel.trigger_typing())
-        await asyncio.sleep(typing_delay)
-        if not typing_task.done():
-            typing_task.cancel()
+        async with message.channel.typing():
+            await asyncio.sleep(typing_delay)
         await message.channel.send(processed_text)
 
     except Exception as e:

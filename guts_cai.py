@@ -2,6 +2,21 @@ import asyncio
 import json
 from aiohttp import web
 from characterai import aiocai
+from urllib.parse import urlparse
+
+# Load server settings from config.json
+try:
+    with open("config.json") as f:
+        settings = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f"Failed to load config file: {e}")
+    exit(1)
+
+# Extract host and port from the URL in config
+parsed_url = urlparse(settings.get("url", "http://127.0.0.1:8080/send_message"))
+host = parsed_url.hostname or "127.0.0.1"
+port = parsed_url.port or 8080
+
 
 # Store chat sessions for different users (in-memory for simplicity)
 chat_sessions = {}
@@ -66,4 +81,4 @@ async def init():
 
 # Run the web server
 if __name__ == '__main__':
-    web.run_app(init(), port=8080)
+    web.run_app(init(), host=host, port=port)

@@ -2,12 +2,23 @@ import asyncio
 import json
 from aiohttp import web
 import requests
+from urllib.parse import urlparse
 
-KOBOLD_API_URL = "http://127.0.0.1:5001/api/v1/generate"  # or whatever port you used!
-
+# Load system prompt
 with open("system_prompt.txt", "r", encoding="utf-8") as f:
     system_prompt = f.read()
-        
+
+# load config file
+with open("config.json") as f:
+    settings = json.load(f)
+
+KOBOLD_API_URL = settings.get("kobold_api_url", "http://127.0.0.1:5001/api/v1/generate")
+
+# Parse host/port from server URL
+parsed_url = urlparse(settings.get("url", "http://127.0.0.1:8080/send_message"))
+host = parsed_url.hostname or "127.0.0.1"
+port = parsed_url.port or 8080
+
 history = system_prompt + "\n"
 
 async def handle_request(request):
@@ -68,4 +79,4 @@ async def init():
 
 # Run the web server
 if __name__ == '__main__':
-    web.run_app(init(), port=8080)
+    web.run_app(init(), host=host, port=port)
