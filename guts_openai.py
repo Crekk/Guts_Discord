@@ -14,7 +14,7 @@ with open("config.json") as f:
 
 OPENAI_TOKEN = config['OPENAI_TOKEN']
 client = AsyncOpenAI(api_key=OPENAI_TOKEN)
-
+model = settings.get("openai_api_model", "gpt-5-mini")
 # Parse URL from config
 parsed_url = urlparse(settings.get("url", "http://127.0.0.1:8080/send_message"))
 host = parsed_url.hostname or "127.0.0.1"
@@ -23,6 +23,8 @@ port = parsed_url.port or 8080
 # System prompt
 with open("system_prompt.txt", "r", encoding="utf-8") as f:
     system_prompt = f.read()
+
+
 
 # Store chat history (for now globally, could be upgraded later)
 chat_history = [
@@ -47,7 +49,7 @@ async def handle_send_message(request):
 
         # Call OpenAI with the full history
         response = await client.chat.completions.create(
-            model="gpt-4.1-mini",  # or your model
+            model=model,  # or your model
             messages=chat_history
         )
         ai_response = response.choices[0].message.content.strip()
