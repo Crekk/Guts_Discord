@@ -37,7 +37,7 @@ wall_count_min = settings.get("wall_count_min", 4)
 wall_count_max = settings.get("wall_count_max", 9)
 http_timeout_seconds = settings.get("http_timeout_seconds", 120)
 
-MAX_DISCORD_MESSAGE_LEN = 2000
+MAX_DISCORD_MESSAGE_LEN = 1800
 
 # Load token from json
 try:
@@ -82,6 +82,24 @@ async def post_json(target_url: str, payload: dict) -> dict:
                 raise Exception(f"Invalid JSON response: {e}. Body: {response_text}")
 
 
+def clean_ai_message(text: str, bot_name: str) -> str:
+    prefix = f"{bot_name}:"
+    lines = text.splitlines()
+    cleaned_lines = []
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        if line.lower().startswith(prefix.lower()):
+            line = line[len(prefix):].lstrip()
+
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines).strip()
+
+
 def split_message(text: str, limit: int = MAX_DISCORD_MESSAGE_LEN) -> list[str]:
     text = text.strip()
     if not text:
@@ -113,7 +131,15 @@ def split_message(text: str, limit: int = MAX_DISCORD_MESSAGE_LEN) -> list[str]:
 
 
 async def send_long_message(channel: discord.abc.Messageable, text: str) -> None:
-    for chunk in split_message(text):
+    chunks = split_message(text)
+    print(f"Sending {len(chunks)} Discord message chunk(s).")
+
+    for chunk in chunks:
+        typing_delay = min(len(chunk) * typing_perchar, typing_max)
+
+        async with channel.typing():
+            await asyncio.sleep(typing_delay)
+
         await channel.send(chunk)
 
 
@@ -164,22 +190,13 @@ async def send_to_guts(message, bot, max_history, url):
         ai_message = response_data.get("response", "")
         print(f"Received response from {BOT_NAME}: {ai_message}")
 
-        prefix = f"{BOT_NAME}:"
-        if ai_message.lower().startswith(prefix.lower()):
-            processed_text = ai_message[len(prefix):].lstrip()
-        else:
-            processed_text = ai_message.strip()
+        processed_text = clean_ai_message(ai_message, BOT_NAME)
 
         bot.message_history = []
 
         if not processed_text:
             print("Received empty processed_text; nothing to send.")
             return
-
-        typing_delay = min(len(processed_text) * typing_perchar, typing_max)
-
-        async with message.channel.typing():
-            await asyncio.sleep(typing_delay)
 
         await send_long_message(message.channel, processed_text)
 

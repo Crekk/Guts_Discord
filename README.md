@@ -17,7 +17,7 @@ Configure token.json file with the following information:
 ```
 DISCORD_TOKEN = Discord bot token
 
--if using character.ai:
+-if using character.ai: (DEPRECATED)
 
 CHARACTER_AI_TOKEN = Character AI token, see **[kramcat/CharacterAI](https://github.com/kramcat/CharacterAI)** on how to obtain
 
