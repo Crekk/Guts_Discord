@@ -223,10 +223,7 @@ async def restart(ctx):
     try:
         await post_json(url, {"user_input": "NEW_CHAT_123456789"})
         bot.message_history = []
-
-        async with ctx.channel.typing():
-            await asyncio.sleep(0.5)
-            await ctx.send(RESTART_MSG)
+        await ctx.send(RESTART_MSG)
     except Exception as e:
         print(f"Restart failed: {e}")
         await ctx.send("Sorry, I couldn't restart the chat session.")
