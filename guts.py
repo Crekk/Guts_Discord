@@ -134,14 +134,14 @@ async def send_long_message(channel: discord.abc.Messageable, text: str) -> None
     chunks = split_message(text)
     print(f"Sending {len(chunks)} Discord message chunk(s).")
 
+    if not chunks:
+        return
+
     typing_delay = min(len(text) * typing_perchar, typing_max)
 
     try:
-        await asyncio.wait_for(
-            channel.typing().__aenter__(),
-            timeout=3.5
-        )
-        await asyncio.sleep(typing_delay)
+        async with channel.typing():
+            await asyncio.sleep(typing_delay)
     except Exception as e:
         print(f"Typing indicator skipped: {repr(e)}", flush=True)
 
