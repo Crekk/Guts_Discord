@@ -27,7 +27,7 @@ RESTART_MSG = settings.get(
 )
 odds = settings.get("odds", 250)
 react_odds = settings.get("react_odds", 1000)
-max_history = settings.get("max_history", 3)
+max_buffer = settings.get("max_buffer", 5)
 inactivity_timer = settings.get("inactivity_timer", 15 * 60)
 typing_max = settings.get("typing_max", 5.0)
 typing_perchar = settings.get("typing_perchar", 0.03)
@@ -55,7 +55,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix=CMD_PREFIX, intents=intents)
 
 # Initialize state so attributes always exist
-bot.message_history = []
+bot.message_buffer = {}
 bot.last_activity = time.time()
 bot.inactivity_task = None
 
@@ -155,7 +155,7 @@ async def start_ai_chat():
 
     while True:
         try:
-            response_data = await post_json(url, {"user_input": "start conversation"})
+            response_data = await post_json(url, {"user_input": "start conversation", "channel_id": "0"}) #channel_id 0 for non-user message
             return response_data.get("response", ""), None
         except Exception as e:
             print(f"Exception occurred: {e}")
@@ -176,20 +176,28 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
 
     bot.ai_chat, bot.chat_id = await start_ai_chat()
-    bot.message_history = []
+    bot.message_buffer = {}
     bot.last_activity = time.time()
 
     if bot.inactivity_task is None or bot.inactivity_task.done():
         bot.inactivity_task = bot.loop.create_task(inactivity_reset())
 
 
-async def send_to_guts(message, bot, max_history, url):
-    context = "\n".join(bot.message_history[-max_history * 2:])
+async def send_to_guts(message, bot, max_buffer, url):
+
+    channel_id = message.channel.id
+    channel_buffer = bot.message_buffer.get(channel_id, [])
+    context = "\n".join(channel_buffer[-max_buffer - 1:])
+
     print(f"Sending to {BOT_NAME} with context:\n{context}")
-    print(f"Triggered by message: {message.content.lower()}")
+    print(f"Triggered by message: {message.content.lower() if message.content else ''}")
+
 
     try:
-        data = {"user_input": context}
+        data = {
+            "channel_id": str(channel_id),
+            "user_input": context
+        }
         print(f"Sending data to {BOT_NAME}: {data}")
 
         response_data = await post_json(url, data)
@@ -198,7 +206,7 @@ async def send_to_guts(message, bot, max_history, url):
 
         processed_text = clean_ai_message(ai_message, BOT_NAME)
 
-        bot.message_history = []
+        bot.message_buffer[channel_id] = []
 
         if not processed_text:
             print("Received empty processed_text; nothing to send.")
@@ -216,9 +224,9 @@ async def inactivity_reset():
     while True:
         await asyncio.sleep(60)
         elapsed = time.time() - bot.last_activity
-        if elapsed >= inactivity_timer and bot.message_history:
-            bot.message_history.clear()
-            print("Message history cleared due to inactivity.")
+        if elapsed >= inactivity_timer and bot.message_buffer:
+            bot.message_buffer.clear()
+            print("Message buffer cleared due to inactivity.")
 
 
 @bot.command()
@@ -228,7 +236,7 @@ async def restart(ctx):
 
     try:
         await post_json(url, {"user_input": "NEW_CHAT_123456789"})
-        bot.message_history = []
+        bot.message_buffer.clear()
         await ctx.send(RESTART_MSG)
     except Exception as e:
         print(f"Restart failed: {e}")
@@ -254,14 +262,14 @@ async def changeodds(ctx, new_odds: int = None):
 
 
 @bot.command()
-async def changehistory(ctx, new_max_history: int = None):
+async def changebuffer(ctx, new_max_buffer: int = None):
     """Change the number of messages to include in context."""
-    global max_history
-    if new_max_history is None:
-        await ctx.send(f"The current messages included are {max_history + 1}")
+    global max_buffer
+    if new_max_buffer is None:
+        await ctx.send(f"The current messages included are {max_buffer + 1}")
     else:
-        max_history = new_max_history
-        await ctx.send(f"Changed the number of messages to include to {max_history + 1}")
+        max_buffer = new_max_buffer
+        await ctx.send(f"Changed the number of messages to include to {max_buffer + 1}")
 
 
 if wall_enabled:
@@ -291,10 +299,15 @@ async def on_message(message):
         return
 
     author_name = USERNAME_MAP.get(message.author.name, str(message.author))
+    channel_id = message.channel.id
+
+    if channel_id not in bot.message_buffer:
+        bot.message_buffer[channel_id] = [] #init list if not exists
 
     # Regular text messages
     if message.content:
-        bot.message_history.append(f"{author_name}: {message.content}")
+        bot.message_buffer[channel_id].append(f"{author_name}: {message.content}")
+        print(f"Received message from {message.author}: {message.content}")
 
     # Embeds
     embed_texts = []
@@ -312,35 +325,35 @@ async def on_message(message):
             print(f"Received embed from {message.author}: {embed_text if embed_text else 'None'}")
 
             if embed_text:
-                bot.message_history.append(f"{author_name}: {embed_text}")
+                bot.message_buffer[channel_id].append(f"{author_name}: {embed_text}")
                 embed_texts.append(embed_text)
 
-    # Keep only the last max_history*2 messages
-    while len(bot.message_history) > max_history * 2:
-        bot.message_history.pop(0)
+    # Keep only the last max_buffer*2 messages per channel
+    while len(bot.message_buffer[channel_id]) > max_buffer + 1:
+        bot.message_buffer[channel_id].pop(0)
 
     message_content = message.content.lower() if message.content else ""
     embed_content = " ".join(embed_texts).lower()
 
     # Check if bot is mentioned
     if bot.user in message.mentions:
-        await send_to_guts(message, bot, max_history, url)
+        await send_to_guts(message, bot, max_buffer, url)
 
     # Check trigger words
     elif any(re.search(rf"\b{re.escape(word)}\b", message_content) for word in trigger_words) or \
          any(re.search(rf"\b{re.escape(word)}\b", embed_content) for word in trigger_words):
-        await send_to_guts(message, bot, max_history, url)
+        await send_to_guts(message, bot, max_buffer, url)
 
     # Random odds
     elif odds > 0 and random.randint(1, odds) == 1:
-        await send_to_guts(message, bot, max_history, url)
+        await send_to_guts(message, bot, max_buffer, url)
 
     # Check if the message is a reply to a previous bot message
     elif message.reference and message.reference.message_id:
         try:
             original_message = await message.channel.fetch_message(message.reference.message_id)
             if original_message.author == bot.user:
-                await send_to_guts(message, bot, max_history, url)
+                await send_to_guts(message, bot, max_buffer, url)
         except (discord.NotFound, discord.Forbidden, discord.HTTPException) as e:
             print(f"Failed to fetch referenced message: {e}")
 

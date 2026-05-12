@@ -1,0 +1,2 @@
+guts.py
+-separate inactivity timer per channel? (optional)
