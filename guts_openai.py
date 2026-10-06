@@ -14,7 +14,8 @@ with open("config.json") as f:
 
 OPENAI_TOKEN = config['OPENAI_TOKEN']
 client = AsyncOpenAI(api_key=OPENAI_TOKEN)
-model = settings.get("openai_api_model", "gpt-5-mini")
+model = settings.get("openai_api_model", "gpt-6-luna")
+reasoning_effort = settings.get("reasoning_effort", "medium")
 # Parse URL from config
 parsed_url = urlparse(settings.get("url", "http://127.0.0.1:8080/send_message"))
 host = parsed_url.hostname or "127.0.0.1"
@@ -57,7 +58,8 @@ async def handle_send_message(request):
         # Call OpenAI with this channel's history only
         response = await client.chat.completions.create(
             model=model,
-            messages=channel_history
+            messages=channel_history,
+            reasoning_effort=reasoning_effort
         )
 
         ai_response = response.choices[0].message.content.strip()
