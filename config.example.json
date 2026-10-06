@@ -28,5 +28,5 @@
   "wall_count_max": 9,
   "kobold_api_url": "http://127.0.0.1:5001/api/v1/generate",
   "openai_api_model": "gpt-6-luna",
-  "openai_reasoning_effort": "medium"
+  "reasoning_effort": "medium"
 }
